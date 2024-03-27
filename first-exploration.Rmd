@@ -10,10 +10,55 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
-data <- read.csv("data/blood_samples_dataset_test.csv")
-data
+```{r, include=FALSE}
+#required packages
+list.of.packages <- c("rms", "dplyr")
+
+#install if necessary
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+#load all packages
+lapply(list.of.packages, library, character.only = TRUE)
 ```
+
+
+```{r}
+data <- read.csv("data/Blood_samples_dataset_balanced_2(f).csv")
+colnames(data)
+```
+
+```{r}
+data$Disease <- as.factor(data$Disease)
+table(data$Disease)
+```
+
+```{r}
+library(stringr)
+cols <- colnames(data)
+cols <- str_replace_all(cols, "\\.", "_") 
+cols <- str_to_lower(cols)
+data.model <- data
+colnames(data.model) <- cols
+data.model
+```
+
+```{r}
+dd <- datadist(data.model)
+options(datadist="dd")
+
+model.logr.all <- lrm(disease ~ . , data = data.model)
+model.logr.all
+```
+```{r}
+model.logr.selected <- lrm(disease ~ +troponin, data = data.model)
+model.logr.selected
+```
+
+
+
+
+
 
 
 
