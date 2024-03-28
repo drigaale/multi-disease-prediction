@@ -92,7 +92,9 @@ table(data$smoking_status)
 Die Beobachtungen mit fehlender Angabe werden mit "not_specified" ergänzt.
 
 ```{r}
-data$smoking_status[data$smoking_status == ""] <- "not_specified"
+data <- data %>%
+  filter(smoking_status != "")
+
 round(table(data$smoking_status) / length(data$id), 2)
 ```
 
