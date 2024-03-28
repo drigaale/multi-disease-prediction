@@ -1,0 +1,200 @@
+---
+title: "first-exploration-stroke"
+author: "Alessio Drigatti"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+#required packages
+list.of.packages <- c("glue", "rms", "caret", "dplyr")
+
+#install if necessary
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+#load all packages
+lapply(list.of.packages, library, character.only = TRUE)
+```
+
+
+Data Source: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/44RCPZ
+Download: 
+
+```{r}
+data <- read.csv("data/Strokesdataset.csv")
+data
+```
+
+```{r}
+table(data$gender)
+```
+
+```{r}
+hist(data$age, breaks = 30)
+```
+Im Datenset befinden sich viele Subjekte mit Alter von 0 Jahren, es stellt sich
+die Frage ob es fehlende Daten sind oder es sich wirklich um Baby's handelt. Im
+Rahmen dieser Arbeit werden wir uns nur auf die Subjekte konzentrieren, die mind.
+18 Jahre alt sind.
+
+```{r}
+young_subjects <- sum(data$age < 18)
+young_subjects / length(data$age)
+```
+7541 bzw. etwa 17% der Subjekte werden nicht für die folgende Analyse beachtet.
+
+```{r}
+data <- data[data$age >= 18,]
+data
+```
+Der Datensatz schrumpft somit auf 35'859 Beobachtungen.
+
+```{r}
+table(data$hypertension)
+```
+```{r}
+table(data$heart_disease)
+```
+```{r}
+table(data$ever_married)
+```
+
+```{r}
+table(data$work_type)
+```
+```{r}
+table(data$Residence_type)
+```
+```{r}
+normal <- sum(data$avg_glucose_level <= 100) / length(data$id)
+prediabetic <- sum((data$avg_glucose_level > 100) & (data$avg_glucose_level <= 126)) / length(data$id)
+diabetic <- sum(data$avg_glucose_level > 126) / length(data$id)
+
+glue("normal: {normal}")
+glue("prediabetic: {prediabetic}")
+glue("diabetic: {diabetic}")
+hist(data$avg_glucose_level, breaks = 100)
+```
+
+```{r}
+par(mfrow=c(1, 2))
+boxplot(data$bmi)
+hist(data$bmi, breaks = 130)
+```
+```{r}
+table(data$smoking_status)
+```
+Die Beobachtungen mit fehlender Angabe werden mit "not_specified" ergänzt.
+
+```{r}
+data$smoking_status[data$smoking_status == ""] <- "not_specified"
+round(table(data$smoking_status) / length(data$id), 2)
+```
+
+```{r}
+table(data$stroke)
+```
+
+Die Beobachtungen mit Strokes sind nicht gut balanciert. Muss bei der Herstellung
+des Model und Test Split beachtet werden!
+
+
+
+```{r}
+sum((data$smoking_status == "not_specified") & (data$stroke == 1)) / 781
+```
+Die Beobachtungen mit *not_specified* und *stroke* machen etwa 18 Prozent der
+Beobachtungen aus, die einen Stroke hatten. Dies ist doch eine grosse Menge
+auszumachen, dass heisst es scheint auf dem ersten Blick nicht sinnvoll diese
+Beobachtungen einfach aus dem Datensatz zu entfernen.
+
+
+```{r}
+sapply(data, function(x) sum(is.na(x)))
+```
+
+In der Variable *bmi* hat es als einzige Variable fehlende Werte.
+
+```{r}
+sum(is.na(data$bmi) & data$stroke == 1)
+```
+
+Es sind etwa 20 Prozent der Beobachtung mit Stroke, die keinen Angaben zum BMI
+haben, deshalb lohnt es sich nicht diese einfach zu entfernen. Es wird probiert 
+den BMI mittels Linearer Regression vorherzusagen.
+
+# Interpolation des BMI mittels Linearer Regression
+```{r}
+data.with.bmi <- data[!is.na(data$bmi),]
+data.with.bmi <- subset(data.with.bmi, select = -c(id, stroke))
+data.with.bmi
+```
+
+```{r}
+dd <- datadist(data.with.bmi)
+options(datadist="dd")
+
+model.bmi <- lm(bmi ~ ., data = data.with.bmi)
+summary(model.bmi)
+```
+
+```{r}
+data.prediction <- subset(data[is.na(data$bmi),], select = -c(id, stroke))
+bmi <- predict(model.bmi, newdata = data.prediction, interval = "prediction")
+bmi <- as.data.frame(bmi)
+par(mfrow=c(1,2))
+hist(bmi$fit, breaks = 100, main = "Predicted BMI", xlim = c(10, 80))
+hist(data.with.bmi$bmi, breaks = 100, main = "Given BMI", xlim = c(10, 80))
+```
+
+```{r}
+data.interpolate.bmi <- data
+data.interpolate.bmi$bmi[is.na(data.interpolate.bmi$bmi)] <- round(bmi$fit, 2)
+```
+
+```{r}
+hist(data.interpolate.bmi$bmi, breaks = 150)
+```
+
+```{r}
+data <- subset(data, select = -c(id))
+data <- data %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate_if(is.integer, as.factor)
+str(data)
+```
+
+
+```{r}
+data.interpolate.bmi <- subset(data.interpolate.bmi, select = -c(id))
+data.interpolate.bmi <- data.interpolate.bmi %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate_if(is.integer, as.factor)
+str(data.interpolate.bmi)
+```
+
+```{r}
+write.csv(data, "data/stroke_original.csv", row.names = F)
+write.csv(data.interpolate.bmi, "data/stroke_interpolate.csv", row.names = F)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

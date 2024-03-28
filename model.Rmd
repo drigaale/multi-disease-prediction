@@ -1,0 +1,22 @@
+---
+title: "Model"
+author: "Alessio Drigatti"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+predictors <- colnames(data)[!colnames(data) %in% c("stroke")]
+
+
+trainIndex <- createDataPartition(data$stroke, p = 0.8, list = FALSE, times = 1)
+
+train_data <- data[trainIndex, ]
+test_data <- data[-trainIndex, ]
+```
+
