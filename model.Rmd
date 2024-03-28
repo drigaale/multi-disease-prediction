@@ -11,14 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, include=FALSE}
 #required packages
-list.of.packages <- c("foreign","bnlearn","stats","pROC", "performance", "see", "DHARMa", "dplyr")
+list.of.packages <- c("foreign","bnlearn","stats","pROC", "performance", "see", "DHARMa", "dplyr", "stargazer")
 
 #install if necessary
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
 #load all packages
-lapply(list.of.packages, library, character.only = TRUE)
+lapply(list.of.packages, library, character.onl = TRUE)
 ```
 
 
@@ -30,13 +30,8 @@ data.interp <- readRDS("data/stroke_interpolate.rds")
 
 
 ```{r}
-data.interp
+data.interp$gender <- as.character(data.interp$gender)
 ```
-
-```{r}
-hist(data$age, breaks=150)
-```
-
 
 
 
@@ -45,21 +40,30 @@ variables <- c("gender", "age", "hypertension", "heart_disease", "avg_glucose_le
 
 data.interp.fac <- data.interp %>%
   select(variables) %>%
+  filter(gender != "Other") %>%
   mutate(avg_glucose_level = case_when(
-    avg_glucose_level <= 100 ~ 0,
-    avg_glucose_level > 100 & avg_glucose_level <= 126 ~ 1,
-    avg_glucose_level > 126 ~ 2,
-    TRUE ~ avg_glucose_level
+    avg_glucose_level <= 100 ~ "normal",
+    avg_glucose_level > 100 & avg_glucose_level <= 126 ~ "prediabetic",
+    avg_glucose_level > 126 ~ "diabetic"
   )) %>%
   mutate(age = case_when(
-    age <= 30 ~ 0,
-    age > 30 & age < 60 ~ 1,
-    age >= 60 ~ 2,
-    TRUE ~ age
+    age <= 30 ~ "young",
+    age > 30 & age <= 59 ~ "adult",  # Corrected the condition to include 59 in the "adult" category
+    age >= 60 ~ "senior"
   )) %>%
-  mutate(bmi = ifelse(bmi > 30, 1, 0)) %>%
+  mutate(bmi = ifelse(bmi > 30, "overweight", "normal")) %>%
   mutate(across(everything(), as.factor))
 
+
+```
+
+```{r}
+summary(data.interp.fac)
+```
+
+```{r}
+library(pander)
+pander(summary(data.interp.fac))
 ```
 
 
@@ -94,15 +98,18 @@ whitelist <- rbind(
   cbind("smoking_status", "stroke"),
   cbind("avg_glucose_level", "stroke"),
   cbind("bmi", "stroke"),
-  cbind("age", "stroke")
+  cbind("age", "stroke"),
+  cbind("gender", "stroke")
 )
 
 
 bn_structure.bl <- tabu(data.model, blacklist = blacklist)
 bn_structure.bl.wl <- tabu(data.model, blacklist = blacklist, whitelist = whitelist)
 graphviz.plot(bn_structure.bl)
-graphviz.plot(bn_structure.bl.wl)
+graphviz.plot(bn_structure.bl.wl, fontsize = 15, layout = "neato")
+
 ```
+
 ```{r}
 get_ancestors <- function(bn_fitted, node, depth) {
   if (depth == 0) return(node)

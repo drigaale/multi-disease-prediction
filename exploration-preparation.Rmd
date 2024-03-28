@@ -31,16 +31,21 @@ data
 ```
 
 ```{r}
-table(data$gender)
+prop.table(table(data$gender))
 ```
 
 ```{r}
-hist(data$age, breaks = 30)
+hist(data$age, breaks = 30, main = "", xlab = "Age", ylab = "Count")
+summary(data$age)
 ```
 Im Datenset befinden sich viele Subjekte mit Alter von 0 Jahren, es stellt sich
 die Frage ob es fehlende Daten sind oder es sich wirklich um Baby's handelt. Im
 Rahmen dieser Arbeit werden wir uns nur auf die Subjekte konzentrieren, die mind.
 18 Jahre alt sind.
+
+
+
+
 
 ```{r}
 young_subjects <- sum(data$age < 18)
@@ -55,10 +60,25 @@ data
 Der Datensatz schrumpft somit auf 35'859 Beobachtungen.
 
 ```{r}
-table(data$hypertension)
+data <- data[data$gender != "Other",]
+```
+
+
+
+
+```{r}
+par(mar = c(2, 2, 1, 1))
+boxplot(age ~ gender, data = data, xlab = "", ylab = "Age",boxlwd = 1, outwex = 0.5, boxwex = 0.6)
+
+```
+
+
+
+```{r}
+table(data$hypertension) / length(data$age)
 ```
 ```{r}
-table(data$heart_disease)
+table(data$heart_disease) / length(data$age)
 ```
 ```{r}
 table(data$ever_married)
@@ -70,6 +90,11 @@ table(data$work_type)
 ```{r}
 table(data$Residence_type)
 ```
+
+```{r}
+table(data$smoking_status) / length(data$smoking_status)
+```
+
 ```{r}
 normal <- sum(data$avg_glucose_level <= 100) / length(data$id)
 prediabetic <- sum((data$avg_glucose_level > 100) & (data$avg_glucose_level <= 126)) / length(data$id)
