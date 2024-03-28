@@ -9,14 +9,101 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r, include=FALSE}
+#required packages
+list.of.packages <- c("foreign","bnlearn","stats","pROC", "performance", "see", "DHARMa", "dplyr")
+
+#install if necessary
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+#load all packages
+lapply(list.of.packages, library, character.only = TRUE)
+```
+
+
+
+```{r}
+data.full <- readRDS("data/stroke_original.rds")
+data.interp <- readRDS("data/stroke_interpolate.rds")
+```
+
+
+```{r}
+data.interp
+```
+
+```{r}
+hist(data$age, breaks=150)
+```
+
+
+
+
+```{r}
+variables <- c("gender", "age", "hypertension", "heart_disease", "avg_glucose_level", "bmi", "smoking_status", "stroke")
+
+data.interp.fac <- data.interp %>%
+  select(variables) %>%
+  mutate(avg_glucose_level = case_when(
+    avg_glucose_level <= 100 ~ 0,
+    avg_glucose_level > 100 & avg_glucose_level <= 126 ~ 1,
+    avg_glucose_level > 126 ~ 2,
+    TRUE ~ avg_glucose_level
+  )) %>%
+  mutate(age = case_when(
+    age <= 30 ~ 0,
+    age > 30 & age < 60 ~ 1,
+    age >= 60 ~ 2,
+    TRUE ~ age
+  )) %>%
+  mutate(bmi = ifelse(bmi > 30, 1, 0)) %>%
+  mutate(across(everything(), as.factor))
+
+```
+
+```{r}
+table(data.interp.fac$smoking_status)
+```
+
+
+
+```{r}
+bn_structure.full <- tabu(data.interp.fac)
+graphviz.plot(bn_structure.full)
+```
+
+
+```{r}
+blacklist <- rbind(
+  cbind(variables, "age"),
+  cbind(variables, "gender"),
+  cbind("age", "gender"),
+  cbind("gender", "age")
+)
+
+whitelist <- rbind(
+  cbind("heart_disease", "stroke"),
+  cbind("hypertension", "stroke"),
+  cbind("smoking_status", "stroke"),
+  cbind("avg_glucose_level", "stroke"),
+  cbind("bmi", "stroke"),
+  cbind("age", "stroke")
+)
+
+
+bn_structure.bl <- tabu(data.interp.fac, blacklist = blacklist, whitelist = whitelist)
+graphviz.plot(bn_structure.bl)
+```
 
 ```{r}
 predictors <- colnames(data)[!colnames(data) %in% c("stroke")]
-
-
 trainIndex <- createDataPartition(data$stroke, p = 0.8, list = FALSE, times = 1)
-
 train_data <- data[trainIndex, ]
 test_data <- data[-trainIndex, ]
 ```
 
+```{r}
+model <- glm(stroke ~ ., data = data.interp.fac, family = binomial)
+summary(model)
+```
