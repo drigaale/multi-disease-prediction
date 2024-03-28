@@ -90,7 +90,6 @@ blacklist <- rbind(
 )
 
 whitelist <- rbind(
-  cbind("heart_disease", "stroke"),
   cbind("hypertension", "stroke"),
   cbind("smoking_status", "stroke"),
   cbind("avg_glucose_level", "stroke"),
@@ -102,24 +101,35 @@ whitelist <- rbind(
 bn_structure.bl <- tabu(data.model, blacklist = blacklist)
 bn_structure.bl.wl <- tabu(data.model, blacklist = blacklist, whitelist = whitelist)
 graphviz.plot(bn_structure.bl)
+graphviz.plot(bn_structure.bl.wl)
 ```
 ```{r}
-predict_bn_stroke = function(bn_fitted, data.val){
-  # Get the parent nodes of DAY30
-  parent_nodes <- parents(bn_fitted, "stroke")
+get_ancestors <- function(bn_fitted, node, depth) {
+  if (depth == 0) return(node)
+  parent_nodes <- parents(bn_fitted, node)
+  if (length(parent_nodes) == 0) return(node)
+  unique(c(node, unlist(lapply(parent_nodes, function(p) get_ancestors(bn_fitted, p, depth - 1)))))
+}
+
+# Updated prediction function
+predict_bn_stroke <- function(bn_fitted, data.val, depth = 10) {
+  # Get the ancestor nodes of "stroke" up to a certain depth
+  ancestor_nodes <- get_ancestors(bn_fitted, "stroke", depth)
+  ancestor_nodes <- setdiff(ancestor_nodes, "stroke") # Remove the target node itself
   
   # Function to gather evidence for a single observation
-  get_evidence <- function(row, parent_nodes) {
-    # Extract values for parent nodes from the row
-    evidence <- setNames(as.list(row[parent_nodes]), parent_nodes)
+  get_evidence <- function(row, ancestor_nodes) {
+    # Extract values for ancestor nodes from the row
+    evidence <- setNames(as.list(row[ancestor_nodes]), ancestor_nodes)
     return(evidence)
   }
   
-  # Calculate conditional probabilities for DAY30 being "1"
+  # Calculate conditional probabilities for "stroke" being "1"
   prob_predictions <- sapply(1:nrow(data.val), function(i) {
-    evidence <- get_evidence(data.val[i, ], parent_nodes)
+    evidence <- get_evidence(data.val[i, ], ancestor_nodes)
     cpquery(bn_fitted, event = (stroke == "1"), evidence = evidence, method = "lw")
   })
+  return(prob_predictions)
 }
 ```
 
@@ -131,11 +141,12 @@ prob_predictions <- predict_bn_stroke(bn_fitted, data.val)
 
 roc_obj <- roc(response = data.val$stroke, predictor = prob_predictions)
 
-plot(roc_obj, main = "ROC Curve for BN Predictions: data-driven and blacklist")
+#Blacklist only
+plot(roc_obj, main = "")
 auc_obj <- auc(roc_obj)
 
 # Add AUC to the plot
-text(x = 0.6, y = 0.2, labels = paste("AUC =", round(auc_obj, 3)), cex = 1.2)
+text(x = 0.2, y = 0.1, labels = paste("AUC =", round(auc_obj, 3)), cex = 1.2)
 ```
 
 ```{r}
@@ -144,11 +155,12 @@ prob_predictions <- predict_bn_stroke(bn_fitted, data.val)
 
 roc_obj <- roc(response = data.val$stroke, predictor = prob_predictions)
 
-plot(roc_obj, main = "ROC Curve for BN Predictions: data-driven and black/whitelist")
+#Black & Whitlist
+plot(roc_obj, main = "")
 auc_obj <- auc(roc_obj)
 
 # Add AUC to the plot
-text(x = 0.6, y = 0.2, labels = paste("AUC =", round(auc_obj, 3)), cex = 1.2)
+text(x = 0.2, y = 0.1, labels = paste("AUC =", round(auc_obj, 3)), cex = 1.2)
 ```
 
 
@@ -166,10 +178,10 @@ predicted_probs <- predict(model.logistic, newdata = data.val, type = "response"
 roc_obj <- roc(response = data.val$stroke, predictor = predicted_probs)
 
 auc_obj <- auc(roc_obj)
+# Logistic Model
+plot(roc_obj, main = "")
 
-plot(roc_obj, main = "ROC Curve for Logistic Regression Model")
-
-text(x = 0.6, y = 0.2, labels = paste("AUC =", round(auc_obj, 3)), cex = 1.2)
+text(x = 0.2, y = 0.1, labels = paste("AUC =", round(auc_obj, 3)), cex = 1.2)
 ```
 
 
