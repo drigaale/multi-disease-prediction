@@ -179,8 +179,8 @@ str(data.interpolate.bmi)
 ```
 
 ```{r}
-write.csv(data, "data/stroke_original.csv", row.names = F)
-write.csv(data.interpolate.bmi, "data/stroke_interpolate.csv", row.names = F)
+saveRDS(data, "data/stroke_original.rds")
+saveRDS(data.interpolate.bmi, "data/stroke_interpolate.rds")
 ```
 
 
